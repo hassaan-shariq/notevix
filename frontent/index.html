@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notevix AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0f0f13;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            color: #7c3aed;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 1rem;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background: #1a1a24;
+            border: 1px solid #2d2d3d;
+            border-radius: 12px;
+            padding: 16px;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            resize: vertical;
+            outline: none;
+            font-family: inherit;
+        }
+
+        textarea:focus {
+            border-color: #7c3aed;
+        }
+
+        textarea::placeholder {
+            color: #555;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        button {
+            background: #1a1a24;
+            color: #e0e0e0;
+            border: 1px solid #2d2d3d;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        button:hover {
+            background: #7c3aed;
+            border-color: #7c3aed;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .result-box {
+            margin-top: 30px;
+            background: #1a1a24;
+            border: 1px solid #2d2d3d;
+            border-radius: 12px;
+            padding: 24px;
+            display: none;
+        }
+
+        .result-box.visible {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .result-label {
+            color: #7c3aed;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: 1px solid #7c3aed;
+            color: #7c3aed;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .copy-btn:hover {
+            background: #7c3aed;
+            color: white;
+        }
+
+        .result-content {
+            color: #e0e0e0;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            font-size: 0.95rem;
+        }
+
+        .result-content strong {
+            color: #7c3aed;
+        }
+
+        .loading {
+            text-align: center;
+            color: #7c3aed;
+            padding: 20px;
+            display: none;
+        }
+
+        .loading.visible {
+            display: block;
+        }
+
+        .error {
+            color: #ef4444;
+            margin-top: 12px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .error.visible {
+            display: block;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #555;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✦ Notevix AI</h1>
+        <p class="subtitle">Paste your text and choose a learning format</p>
+
+        <textarea 
+            id="inputText" 
+            placeholder="Paste your notes, article, or study material here..."></textarea>
+
+        <div class="buttons">
+            <button onclick="callAPI('/summarize', 'summary', 'Summary')">
+                📝 Summarize
+            </button>
+            <button onclick="callAPI('/bullet-summary', 'bullet_summary', 'Bullet Summary')">
+                • Bullet Summary
+            </button>
+            <button onclick="callAPI('/key-points', 'key_points', 'Key Points')">
+                🔑 Key Points
+            </button>
+            <button onclick="callAPI('/flashcards', 'flashcards', 'Flashcards')">
+                🃏 Flashcards
+            </button>
+            <button onclick="callAPI('/quiz', 'quiz', 'Practice Quiz')">
+                ❓ Quiz
+            </button>
+            <button onclick="callAPI('/eli5', 'eli5', 'ELI5')">
+                💡 ELI5
+            </button>
+            <button onclick="callAPI('/exam-notes', 'exam_notes', 'Exam Notes')">
+                📚 Exam Notes
+            </button>
+            <button onclick="callAPI('/important-terms', 'important_terms', 'Important Terms')">
+                📖 Terms
+            </button>
+            <button onclick="callAPI('/action-items', 'action_items', 'Action Items')">
+                ✅ Action Items
+            </button>
+            <button onclick="callAPI('/faq', 'faq', 'FAQs')">
+                💬 FAQs
+            </button>
+        </div>
+
+        <div class="error" id="error">
+            ⚠️ Please paste some text first.
+        </div>
+
+        <div class="loading" id="loading">
+            ⚡ Generating your content...
+        </div>
+
+        <div class="result-box" id="resultBox">
+            <div class="result-header">
+                <div class="result-label" id="resultLabel"></div>
+                <button class="copy-btn" onclick="copyResult()">
+                    📋 Copy
+                </button>
+            </div>
+            <div class="result-content" id="resultContent"></div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2026 Notevix AI. Designed for smarter learning.
+        Designed and developed by Hassaan Shariq.
+    </footer>
+
+    <script>
+        async function callAPI(endpoint, responseKey, label) {
+            const text = document.getElementById('inputText').value.trim();
+            const errorEl = document.getElementById('error');
+            const loadingEl = document.getElementById('loading');
+            const resultBox = document.getElementById('resultBox');
+            const resultLabel = document.getElementById('resultLabel');
+            const resultContent = document.getElementById('resultContent');
+
+            if (!text) {
+                errorEl.classList.add('visible');
+                return;
+            }
+
+            errorEl.classList.remove('visible');
+            resultBox.classList.remove('visible');
+            loadingEl.classList.add('visible');
+
+            try {
+                const response = await fetch(`http://localhost:8000${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+
+                const data = await response.json();
+
+                resultLabel.textContent = label;
+                resultContent.innerHTML = data[responseKey]
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/•/g, '&bull;')
+                    .replace(/\n/g, '<br>');
+                resultBox.classList.add('visible');
+
+            } catch (error) {
+                resultLabel.textContent = 'Error';
+                resultContent.textContent =
+                    'Could not connect to API. Make sure the server is running.';
+                resultBox.classList.add('visible');
+            } finally {
+                loadingEl.classList.remove('visible');
+            }
+        }
+
+        function copyResult() {
+            const content = document.getElementById('resultContent').innerText;
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(content).then(() => {
+                    showCopied();
+                });
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = content;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showCopied();
+            }
+        }
+
+        function showCopied() {
+            const btn = document.querySelector('.copy-btn');
+            btn.textContent = '✅ Copied';
+            setTimeout(() => btn.textContent = '📋 Copy', 2000);
+        }
+    </script>
+</body>
+</html>
