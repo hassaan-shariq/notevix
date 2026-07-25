@@ -1,3 +1,4 @@
+#front end code
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -264,7 +265,7 @@
             loadingEl.classList.add('visible');
 
             try {
-                const response = await fetch(`https://your-railway-url.up.railway.app${endpoint}`, {
+                const response = await fetch(`https://notevix-production.up.railway.app${endpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text: text })
