@@ -1,4 +1,3 @@
-#front end code
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -175,6 +174,54 @@
             color: #555;
             font-size: 0.85rem;
         }
+
+
+        .image-upload-section {
+    margin-top: 16px;
+}
+
+.upload-label {
+    color: #888;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.upload-area {
+    border: 2px dashed #2d2d3d;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #1a1a24;
+}
+
+.upload-area:hover {
+    border-color: #7c3aed;
+    background: #1f1f2e;
+}
+
+.upload-area div {
+    color: #888;
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+}
+
+.upload-area span {
+    font-size: 0.75rem;
+    color: #555;
+}
+
+.upload-success {
+    color: #7c3aed !important;
+}
+
+
+
+
     </style>
 </head>
 <body>
@@ -185,6 +232,27 @@
         <textarea 
             id="inputText" 
             placeholder="Paste your notes, article, or study material here..."></textarea>
+
+        <!-- Image Upload Section -->
+<div class="image-upload-section">
+    <p class="upload-label">📸 Or upload an image of your notes:</p>
+    <div class="upload-area" onclick="document.getElementById('imageInput').click()">
+        <input 
+            type="file" 
+            id="imageInput" 
+            accept="image/*" 
+            style="display:none"
+            onchange="handleImageUpload(event)"
+        >
+        <div id="uploadPrompt">
+            📷 Click to upload image
+            <span>Supports JPG, PNG, WEBP</span>
+        </div>
+        <div id="uploadStatus" style="display:none"></div>
+    </div>
+</div>
+
+
 
         <div class="buttons">
             <button onclick="callAPI('/summarize', 'summary', 'Summary')">
@@ -316,6 +384,54 @@
             btn.textContent = '✅ Copied';
             setTimeout(() => btn.textContent = '📋 Copy', 2000);
         }
+
+
+        async function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const uploadStatus = document.getElementById('uploadStatus');
+    const uploadPrompt = document.getElementById('uploadPrompt');
+    const loadingEl = document.getElementById('loading');
+
+    uploadPrompt.style.display = 'none';
+    uploadStatus.style.display = 'flex';
+    uploadStatus.style.flexDirection = 'column';
+    uploadStatus.style.alignItems = 'center';
+    uploadStatus.style.gap = '4px';
+    uploadStatus.innerHTML = '⚡ Extracting text from image...';
+    uploadStatus.style.color = '#7c3aed';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch(
+            `https://notevix-production.up.railway.app/extract-from-image`,
+            {
+                method: 'POST',
+                body: formData
+            }
+        );
+
+        const data = await response.json();
+
+        if (data.extracted_text) {
+            document.getElementById('inputText').value = data.extracted_text;
+            uploadStatus.innerHTML = '✅ Text extracted! Now click any feature button.';
+            uploadStatus.className = 'upload-success';
+        } else {
+            uploadStatus.innerHTML = '❌ Could not extract text. Try a clearer image.';
+            uploadStatus.style.color = '#ef4444';
+        }
+
+    } catch (error) {
+        uploadStatus.innerHTML = '❌ Upload failed. Make sure server is running.';
+        uploadStatus.style.color = '#ef4444';
+    }
+
+    uploadPrompt.style.display = 'none';
+}
     </script>
 </body>
 </html>

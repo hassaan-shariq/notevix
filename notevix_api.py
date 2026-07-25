@@ -5,6 +5,9 @@ from groq import Groq
 import os
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, UploadFile, File
+import base64
+
 
 load_dotenv()
 
@@ -342,3 +345,50 @@ def faq(input: TextInput):
         max_tokens=800
     )
     return {"faq": result}
+
+
+
+@app.post("/extract-from-image")
+async def extract_from_image(file: UploadFile = File(...)):
+    # Read image file
+    image_data = await file.read()
+    base64_image = base64.b64encode(image_data).decode('utf-8')
+    
+    # Determine image type
+    content_type = file.content_type or "image/jpeg"
+    
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.2-11b-vision-preview",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{content_type};base64,{base64_image}"
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": """Extract ALL text from this image completely and accurately.
+                            If it's a textbook page, extract every word.
+                            If it's handwritten notes, transcribe exactly.
+                            If it's a whiteboard, capture everything.
+                            Return only the extracted text, nothing else."""
+                        }
+                    ]
+                }
+            ],
+            max_tokens=1000
+        )
+        
+        extracted_text = response.choices[0].message.content
+        return {
+            "extracted_text": extracted_text,
+            "message": "Text extracted successfully. You can now use this text with any Notevix feature."
+        }
+        
+    except Exception as e:
+        return {"error": f"Image processing failed: {str(e)}"}
