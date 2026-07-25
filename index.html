@@ -220,6 +220,75 @@
     color: #7c3aed !important;
 }
 
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 600px) {
+    body {
+        padding: 20px 12px;
+    }
+
+    h1 {
+        font-size: 1.8rem;
+    }
+
+    .subtitle {
+        font-size: 0.85rem;
+        margin-bottom: 24px;
+    }
+
+    textarea {
+        height: 150px;
+        font-size: 0.9rem;
+        padding: 12px;
+    }
+
+    .buttons {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    button {
+        padding: 10px 8px;
+        font-size: 0.82rem;
+    }
+
+    button[style*="grid-column"] {
+        grid-column: span 2 !important;
+    }
+
+    .upload-area {
+        padding: 14px;
+    }
+
+    .result-box {
+        padding: 16px;
+    }
+
+    .result-content {
+        font-size: 0.88rem;
+        line-height: 1.7;
+    }
+
+    .copy-btn {
+        padding: 5px 10px;
+        font-size: 0.75rem;
+    }
+
+    footer {
+        font-size: 0.75rem;
+        margin-top: 24px;
+    }
+}
+
+@media (max-width: 380px) {
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    .buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
 
 
 
