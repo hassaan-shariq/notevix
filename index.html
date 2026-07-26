@@ -220,6 +220,57 @@
     color: #7c3aed !important;
 }
 
+body {
+  margin-top: 40px !important; /* Prevents the bar from covering your actual site content */
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.notevix-announcement-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: #111827; /* Clean, professional dark background */
+  color: #ffffff;
+  padding: 8px 0; /* Keeps the vertical height slim */
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  z-index: 99999; /* Keeps it on top of all elements */
+}
+
+.notevix-bar-content {
+  display: inline-flex; /* Shrinks the content block tightly around the text */
+  align-items: center;
+  gap: 8px;
+  max-width: 600px; /* Limits the horizontal width of the container text */
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+.notevix-badge {
+  background-color: #2563eb;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.notevix-bar-text {
+  margin: 0;
+  color: #d1d5db;
+}
+
+.notevix-bar-text strong {
+  color: #ffffff;
+}
+
+
+
+
 /* ===== MOBILE RESPONSIVE ===== */
 @media (max-width: 600px) {
     body {
@@ -295,9 +346,18 @@
     </style>
 </head>
 <body>
+   <div class="notevix-announcement-bar">
+    <div class="notevix-bar-content">
+        <span class="notevix-badge">Beta</span>
+        <p class="notevix-bar-text"><strong>Notevix AI</strong> — We are improving daily to bring you the best experience.</p>
+    </div>
+   </div>
+
+
+
     <div class="container">
         <h1>✦ Notevix AI</h1>
-        <p class="subtitle">Paste your text and choose a learning format</p>
+        <p class="subtitle">Turn notes into study materials in seconds</p>
 
         <textarea 
             id="inputText" 
