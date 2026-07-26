@@ -250,6 +250,7 @@ def exam_notes(input: TextInput):
         🎯 LIKELY EXAM QUESTIONS:
         1. [Probable exam question]
         2. [Probable exam question]
+        3. [Probable exam question]
         
         💡 ONE-LINE SUMMARY:
         [The entire topic in one sentence]""",
