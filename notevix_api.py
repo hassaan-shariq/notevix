@@ -11,6 +11,13 @@ import base64
 
 load_dotenv()
 
+
+from database import init_db, save_result, get_history, get_history_by_feature
+from groq import Groq
+
+init_db()          # ← after load_dotenv
+
+
 app = FastAPI(
     title="Notevix AI API",
     description="AI-powered study tool backend",
@@ -33,7 +40,9 @@ class TextInput(BaseModel):
     text: str
 
 
-def call_groq(system_prompt: str, user_text: str, max_tokens: int = 500) -> str:
+def call_groq(system_prompt: str, user_text: str, 
+              max_tokens: int = 500, 
+              feature: str = "general") -> str:
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
@@ -43,7 +52,12 @@ def call_groq(system_prompt: str, user_text: str, max_tokens: int = 500) -> str:
         max_tokens=max_tokens,
         temperature=0.4
     )
-    return response.choices[0].message.content
+    result = response.choices[0].message.content
+    
+    # Save to database
+    save_result(feature, user_text[:500], result)
+    
+    return result
 
 
 @app.get("/")
@@ -64,7 +78,8 @@ def summarize(input: TextInput):
         - Do not use bullet points — write in flowing prose
         - Start directly with the summary, no preamble""",
         user_text=input.text,
-        max_tokens=300
+        max_tokens=300,
+        feature="summarize"
     )
     return {"summary": result}
 
@@ -91,7 +106,8 @@ def detailed_summary(input: TextInput):
         
         Be thorough and preserve all important information.""",
         user_text=input.text,
-        max_tokens=800
+        max_tokens=800,
+        feature="detailed-summary"
     )
     return {"detailed_summary": result}
 
@@ -111,7 +127,8 @@ def bullet_summary(input: TextInput):
         - Be specific — avoid vague statements
         - Do not add any intro or outro text""",
         user_text=input.text,
-        max_tokens=500
+        max_tokens=500,
+        feature="bullet-summary"
     )
     return {"bullet_summary": result}
 
@@ -132,7 +149,8 @@ def key_points(input: TextInput):
         - Be specific with facts, numbers, and names
         - Do not add intro or conclusion text""",
         user_text=input.text,
-        max_tokens=600
+        max_tokens=600,
+        feature="key-points"
     )
     return {"key_points": result}
 
@@ -157,7 +175,8 @@ def flashcards(input: TextInput):
         - Cover different aspects of the text
         - Avoid yes/no questions""",
         user_text=input.text,
-        max_tokens=700
+        max_tokens=700,
+        feature="flashcards"
     )
     return {"flashcards": result}
 
@@ -188,7 +207,8 @@ def quiz(input: TextInput):
         - Only one correct answer per question
         - Explanations should reinforce learning""",
         user_text=input.text,
-        max_tokens=800
+        max_tokens=800,
+        feature="quiz"
     )
     return {"quiz": result}
 
@@ -215,7 +235,8 @@ def eli5(input: TextInput):
         - Be engaging and conversational
         - If you must use a technical term, immediately explain it""",
         user_text=input.text,
-        max_tokens=600
+        max_tokens=600,
+        feature="eli5"
     )
     return {"eli5": result}
 
@@ -255,7 +276,8 @@ def exam_notes(input: TextInput):
         💡 ONE-LINE SUMMARY:
         [The entire topic in one sentence]""",
         user_text=input.text,
-        max_tokens=800
+        max_tokens=800,
+        feature="exam-notes"
     )
     return {"exam_notes": result}
 
@@ -281,7 +303,8 @@ def important_terms(input: TextInput):
         - Definitions should be standalone and complete
         - Context should reference the source material""",
         user_text=input.text,
-        max_tokens=700
+        max_tokens=700,
+        feature="important-terms"
     )
     return {"important_terms": result}
 
@@ -317,7 +340,8 @@ def action_items(input: TextInput):
         - If text has no explicit actions, derive them from the content's lessons
         - Each action should be independently actionable""",
         user_text=input.text,
-        max_tokens=700
+        max_tokens=700,
+        feature="action-items"
     )
     return {"action_items": result}
 
@@ -343,7 +367,8 @@ def faq(input: TextInput):
         - Ground all answers in the provided text
         - Last question should be the most thought-provoking""",
         user_text=input.text,
-        max_tokens=800
+        max_tokens=800,
+        feature="faq"
     )
     return {"faq": result}
 
@@ -382,7 +407,7 @@ async def extract_from_image(file: UploadFile = File(...)):
                     ]
                 }
             ],
-            max_tokens=1000
+            max_tokens=1000,
         )
         
         extracted_text = response.choices[0].message.content
@@ -393,3 +418,37 @@ async def extract_from_image(file: UploadFile = File(...)):
         
     except Exception as e:
         return {"error": f"Image processing failed: {str(e)}"}
+    
+
+@app.get("/history")
+def history():
+    rows = get_history()
+    return {
+        "history": [
+            {
+                "id": row[0],
+                "feature": row[1],
+                "input": row[2][:100] + "...",
+                "result": row[3][:200] + "...",
+                "date": row[4]
+            }
+            for row in rows
+        ]
+    }
+
+@app.get("/history/{feature}")
+def history_by_feature(feature: str):
+    rows = get_history_by_feature(feature)
+    return {
+        "feature": feature,
+        "count": len(rows),
+        "history": [
+            {
+                "id": row[0],
+                "input": row[2][:100] + "...",
+                "result": row[3][:200] + "...",
+                "date": row[4]
+            }
+            for row in rows
+        ]
+    }
