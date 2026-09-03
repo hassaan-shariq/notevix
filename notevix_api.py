@@ -1,22 +1,14 @@
-#backend code
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from groq import Groq
 import os
-from dotenv import load_dotenv
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, UploadFile, File
 import base64
-
+from dotenv import load_dotenv
+from database import init_db, save_result, get_history, get_history_by_feature
 
 load_dotenv()
-
-
-from database import init_db, save_result, get_history, get_history_by_feature
-from groq import Groq
-
-init_db()          # ← after load_dotenv
-
+init_db()
 
 app = FastAPI(
     title="Notevix AI API",
@@ -33,31 +25,32 @@ app.add_middleware(
 )
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "llama-3.1-8b-instant"
+MODEL = "openai/gpt-oss-20b"
+VISION_MODEL = "qwen/qwen3.6-27b"
 
 
 class TextInput(BaseModel):
     text: str
 
 
-def call_groq(system_prompt: str, user_text: str, 
-              max_tokens: int = 500, 
+def call_groq(system_prompt: str, user_text: str,
+              max_tokens: int = 500,
               feature: str = "general") -> str:
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_text}
-        ],
-        max_tokens=max_tokens,
-        temperature=0.4
-    )
-    result = response.choices[0].message.content
-    
-    # Save to database
-    save_result(feature, user_text[:500], result)
-    
-    return result
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_text}
+            ],
+            max_tokens=max_tokens,
+            temperature=0.4
+        )
+        result = response.choices[0].message.content
+        save_result(feature, user_text[:500], result)
+        return result
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 
 @app.get("/")
@@ -70,7 +63,6 @@ def summarize(input: TextInput):
     result = call_groq(
         system_prompt="""You are an expert academic summarizer.
         Create a clear, concise summary of the provided text.
-        
         Rules:
         - Write 3-5 sentences maximum
         - Capture the core message and most important points
@@ -89,21 +81,11 @@ def detailed_summary(input: TextInput):
     result = call_groq(
         system_prompt="""You are an expert academic writer.
         Create a comprehensive, detailed summary of the provided text.
-
         Structure your response as:
-        
-        📋 OVERVIEW
-        [2-3 sentences capturing the big picture]
-        
-        📌 MAIN POINTS
-        [Cover each major section or argument in detail]
-        
-        💡 KEY INSIGHTS
-        [What makes this content important or unique]
-        
-        📝 CONCLUSION
-        [Final takeaway in 1-2 sentences]
-        
+        OVERVIEW: 2-3 sentences capturing the big picture
+        MAIN POINTS: Cover each major section in detail
+        KEY INSIGHTS: What makes this content important
+        CONCLUSION: Final takeaway in 1-2 sentences
         Be thorough and preserve all important information.""",
         user_text=input.text,
         max_tokens=800,
@@ -117,11 +99,10 @@ def bullet_summary(input: TextInput):
     result = call_groq(
         system_prompt="""You are an expert at distilling information.
         Convert the provided text into clean, scannable bullet points.
-        
         Rules:
         - Maximum 8 bullet points
         - Each bullet = one complete, standalone idea
-        - Start each bullet with •
+        - Start each bullet with a dash -
         - Order from most to least important
         - Each bullet should be 1-2 sentences maximum
         - Be specific — avoid vague statements
@@ -138,11 +119,9 @@ def key_points(input: TextInput):
     result = call_groq(
         system_prompt="""You are an expert study assistant.
         Extract exactly 5 key points from the provided text.
-        
         Format each point as:
-        🔑 Key Point [number]: [Bold title]
+        Key Point [number]: [Title]
         [2-3 sentence explanation of why this point matters]
-        
         Rules:
         - Focus on concepts that would appear in an exam
         - Prioritize understanding over memorization
@@ -160,15 +139,11 @@ def flashcards(input: TextInput):
     result = call_groq(
         system_prompt="""You are an expert educator creating study flashcards.
         Generate exactly 5 high-quality flashcards from the provided text.
-        
         Format each flashcard exactly as:
-        
-        ━━━━━━━━━━━━━━━━━━
-        🃏 CARD [number]
+        CARD [number]
         Q: [Clear, specific question]
         A: [Complete, accurate answer in 1-3 sentences]
-        ━━━━━━━━━━━━━━━━━━
-        
+        ---
         Rules:
         - Questions should test understanding, not just memory
         - Answers should be complete and self-explanatory
@@ -186,21 +161,14 @@ def quiz(input: TextInput):
     result = call_groq(
         system_prompt="""You are an expert exam creator.
         Create exactly 4 multiple choice questions from the provided text.
-        
         Format each question exactly as:
-        
-        ❓ Question [number]:
-        [Clear, specific question]
-        
+        Question [number]: [Clear, specific question]
         A) [Option]
         B) [Option]
         C) [Option]
         D) [Option]
-        
-        ✅ Correct Answer: [Letter]) [Brief explanation of why this is correct]
-        
-        ─────────────────
-        
+        Correct Answer: [Letter] - [Brief explanation]
+        ---
         Rules:
         - Questions must be answerable from the text only
         - All 4 options must be plausible
@@ -218,22 +186,14 @@ def eli5(input: TextInput):
     result = call_groq(
         system_prompt="""You are a brilliant teacher who can explain anything simply.
         Explain the provided text as if talking to a curious 10-year-old.
-        
         Structure:
-        🌟 THE SIMPLE VERSION
-        [2-3 sentences in the simplest possible language]
-        
-        🔍 BREAKING IT DOWN
-        [Explain the 3 most important ideas using everyday analogies and examples]
-        
-        💬 IN ONE SENTENCE
-        [Summarize everything in a single, memorable sentence]
-        
+        THE SIMPLE VERSION: 2-3 sentences in the simplest possible language
+        BREAKING IT DOWN: Explain the 3 most important ideas using everyday analogies
+        IN ONE SENTENCE: Summarize everything in a single memorable sentence
         Rules:
         - No jargon or technical terms
         - Use real-life examples and comparisons
-        - Be engaging and conversational
-        - If you must use a technical term, immediately explain it""",
+        - Be engaging and conversational""",
         user_text=input.text,
         max_tokens=600,
         feature="eli5"
@@ -245,36 +205,26 @@ def eli5(input: TextInput):
 def exam_notes(input: TextInput):
     result = call_groq(
         system_prompt="""You are an expert at creating exam revision notes.
-        Create comprehensive, exam-ready notes from the provided text.
-        
+        Create comprehensive exam-ready notes from the provided text.
         Format exactly as:
-        
-        📚 EXAM NOTES
-        
-        📌 TOPIC: [Main subject]
-        📖 SUBTOPICS: [List related topics]
-        
-        ⭐ MUST-KNOW FACTS:
+        EXAM NOTES
+        TOPIC: [Main subject]
+        SUBTOPICS: [List related topics]
+        MUST-KNOW FACTS:
         1. [Critical fact]
         2. [Critical fact]
         3. [Critical fact]
         4. [Critical fact]
         5. [Critical fact]
-        
-        📝 KEY DEFINITIONS:
-        • [Term]: [Definition]
-        • [Term]: [Definition]
-        
-        ⚡ QUICK RECALL:
-        [3 bullet points — the absolute minimum to remember]
-        
-        🎯 LIKELY EXAM QUESTIONS:
-        1. [Probable exam question]
-        2. [Probable exam question]
-        3. [Probable exam question]
-        
-        💡 ONE-LINE SUMMARY:
-        [The entire topic in one sentence]""",
+        KEY DEFINITIONS:
+        [Term]: [Definition]
+        QUICK RECALL:
+        [3 points - the absolute minimum to remember]
+        LIKELY EXAM QUESTIONS:
+        1. [Question]
+        2. [Question]
+        3. [Question]
+        ONE-LINE SUMMARY: [Entire topic in one sentence]""",
         user_text=input.text,
         max_tokens=800,
         feature="exam-notes"
@@ -287,21 +237,16 @@ def important_terms(input: TextInput):
     result = call_groq(
         system_prompt="""You are an expert lexicographer and educator.
         Extract all important terms and concepts from the provided text.
-        
         Format each term as:
-        
-        📖 [TERM NAME]
+        TERM: [Name]
         Definition: [Clear, accurate definition]
-        Context: [How it's used in this specific text]
+        Context: [How it is used in this specific text]
         Remember: [One memorable way to remember this term]
-        
-        ─────────────────
-        
+        ---
         Rules:
         - Include 5-8 most important terms
         - Prioritize terms that would appear in exams
-        - Definitions should be standalone and complete
-        - Context should reference the source material""",
+        - Definitions should be standalone and complete""",
         user_text=input.text,
         max_tokens=700,
         feature="important-terms"
@@ -314,31 +259,21 @@ def action_items(input: TextInput):
     result = call_groq(
         system_prompt="""You are an expert productivity consultant.
         Extract all explicit and implicit action items from the provided text.
-        
         Format your response as:
-        
-        ✅ ACTION ITEMS
-        
-        🔴 IMMEDIATE ACTIONS (Do Today):
+        ACTION ITEMS
+        IMMEDIATE (Do Today):
         1. [Specific, concrete action]
         2. [Specific, concrete action]
-        
-        🟡 SHORT-TERM ACTIONS (This Week):
+        SHORT-TERM (This Week):
         1. [Specific action with clear outcome]
         2. [Specific action with clear outcome]
-        
-        🟢 LONG-TERM ACTIONS (Ongoing):
+        LONG-TERM (Ongoing):
         1. [Strategic action]
         2. [Strategic action]
-        
-        💡 KEY INSIGHT:
-        [One sentence capturing the most important takeaway]
-        
+        KEY INSIGHT: [One sentence capturing the most important takeaway]
         Rules:
-        - Every action must start with a verb (Build, Create, Learn, etc.)
-        - Be specific — avoid vague advice
-        - If text has no explicit actions, derive them from the content's lessons
-        - Each action should be independently actionable""",
+        - Every action must start with a verb
+        - Be specific — avoid vague advice""",
         user_text=input.text,
         max_tokens=700,
         feature="action-items"
@@ -351,21 +286,15 @@ def faq(input: TextInput):
     result = call_groq(
         system_prompt="""You are an expert at anticipating questions learners have.
         Generate 5 frequently asked questions with detailed answers.
-        
         Format each as:
-        
-        ❓ Q[number]: [Question a student would genuinely ask]
-        
-        💬 A[number]: [Comprehensive answer that fully addresses the question]
-        
-        ─────────────────
-        
+        Q[number]: [Question a student would genuinely ask]
+        A[number]: [Comprehensive answer that fully addresses the question]
+        ---
         Rules:
         - Questions should reflect genuine confusion points
-        - Answers must be complete — no "see above" references
+        - Answers must be complete
         - Range from basic to advanced questions
-        - Ground all answers in the provided text
-        - Last question should be the most thought-provoking""",
+        - Ground all answers in the provided text""",
         user_text=input.text,
         max_tokens=800,
         feature="faq"
@@ -373,19 +302,15 @@ def faq(input: TextInput):
     return {"faq": result}
 
 
-
 @app.post("/extract-from-image")
 async def extract_from_image(file: UploadFile = File(...)):
-    # Read image file
     image_data = await file.read()
     base64_image = base64.b64encode(image_data).decode('utf-8')
-    
-    # Determine image type
     content_type = file.content_type or "image/jpeg"
-    
+
     try:
         response = client.chat.completions.create(
-            model="qwen/qwen3.6-27b",
+            model=VISION_MODEL,
             messages=[
                 {
                     "role": "user",
@@ -399,9 +324,9 @@ async def extract_from_image(file: UploadFile = File(...)):
                         {
                             "type": "text",
                             "text": """Extract ALL text from this image completely and accurately.
-                            If it's a textbook page, extract every word.
-                            If it's handwritten notes, transcribe exactly.
-                            If it's a whiteboard, capture everything.
+                            If it is a textbook page, extract every word.
+                            If it is handwritten notes, transcribe exactly.
+                            If it is a whiteboard, capture everything.
                             Return only the extracted text, nothing else."""
                         }
                     ]
@@ -409,16 +334,15 @@ async def extract_from_image(file: UploadFile = File(...)):
             ],
             max_tokens=1000,
         )
-        
         extracted_text = response.choices[0].message.content
+        save_result("image-extraction", "image uploaded", extracted_text)
         return {
             "extracted_text": extracted_text,
-            "message": "Text extracted successfully. You can now use this text with any Notevix feature."
+            "message": "Text extracted successfully."
         }
-        
     except Exception as e:
         return {"error": f"Image processing failed: {str(e)}"}
-    
+
 
 @app.get("/history")
 def history():
@@ -435,6 +359,7 @@ def history():
             for row in rows
         ]
     }
+
 
 @app.get("/history/{feature}")
 def history_by_feature(feature: str):
